@@ -1,0 +1,1951 @@
+<!DOCTYPE html>
+<html lang="hi" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A4 पत्र एवं बहु-रिकॉर्ड जनरेटर</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for Excel/CSV Import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- html2pdf.js for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Devanagari Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Anek+Devanagari:wght@400;600;700&family=Gotu&family=Hind:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Rozha+One&family=Yatra+One&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Hind', sans-serif;
+            user-select: text;
+        }
+
+        .font-hind { font-family: 'Hind', sans-serif; }
+        .font-noto { font-family: 'Noto Sans Devanagari', sans-serif; }
+        .font-anek { font-family: 'Anek Devanagari', sans-serif; }
+        .font-gotu { font-family: 'Gotu', sans-serif; }
+        .font-rozha { font-family: 'Rozha One', serif; }
+        .font-yatra { font-family: 'Yatra One', serif; }
+        .font-serif-std { font-family: Georgia, Cambria, "Times New Roman", Times, serif; }
+        .font-sans-std { font-family: Arial, Helvetica, sans-serif; }
+
+        .a4-page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 0 auto;
+            background: #ffffff;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            position: relative;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            transition: padding 0.2s ease;
+        }
+
+        .a4-page.landscape {
+            width: 297mm;
+            min-height: 210mm;
+        }
+
+        #floating-selection-toolbar {
+            position: absolute;
+            display: none;
+            z-index: 1000;
+            background: #0f172a;
+            color: #ffffff;
+            border-radius: 8px;
+            padding: 4px 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+            border: 1px solid #334155;
+            animation: fadeIn 0.12s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .var-tag {
+            background-color: #fef08a;
+            color: #854d0e;
+            padding: 1px 5px;
+            margin: 0;
+            border-radius: 4px;
+            font-weight: 600;
+            border: 1px dashed #ca8a04;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            user-select: all;
+            vertical-align: baseline;
+            white-space: nowrap;
+        }
+
+        .var-tag.kathan-tag {
+            background-color: #e0e7ff;
+            color: #3730a3;
+            border-color: #6366f1;
+        }
+
+        .var-tag.formula-tag {
+            background-color: #dcfce7;
+            color: #166534;
+            border-color: #22c55e;
+        }
+
+        .var-tag:hover {
+            background-color: #fecdd3;
+            color: #9f1239;
+            border-color: #e11d48;
+        }
+
+        .table-scrollbar::-webkit-scrollbar {
+            height: 10px;
+            width: 8px;
+        }
+        .table-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+        .table-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+        }
+        .table-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+            html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            header, #editor-toolbar, #floating-selection-toolbar, #section-editor, #section-table, #preview-control-bar, .no-print {
+                display: none !important;
+            }
+            main {
+                max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: block !important;
+            }
+            #section-preview {
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            #print-area {
+                display: block !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+            }
+            .a4-page {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                width: 210mm !important;
+                min-height: 296mm !important;
+                height: auto !important;
+                box-sizing: border-box !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            .a4-page.landscape {
+                width: 297mm !important;
+                min-height: 209mm !important;
+            }
+            .a4-page:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+            }
+            .var-tag-filled {
+                border-bottom: none !important;
+                text-decoration: none !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-200 min-h-screen flex flex-col text-slate-800">
+
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between h-14">
+            
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-1.5 rounded-lg text-white">
+                    <i class="fa-solid fa-file-contract text-lg"></i>
+                </div>
+                    <h1 class="font-poppins font-extrabold text-lg leading-tight text-white tracking-wide">Patra<span style="color:#ff9933">Setu</span></h1>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 text-xs font-medium">
+                <span class="text-slate-300 bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700">
+                    <i class="fa-solid fa-user-circle text-emerald-400 mr-1"></i> <span id="user-display-name">User</span>
+                </span>
+
+                <button onclick="handleLogout()" class="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold transition flex items-center gap-1">
+                    <i class="fa-solid fa-right-from-bracket"></i> लॉगआउट
+                </button>
+
+                <div class="relative inline-block text-left group">
+                    <button class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 flex items-center gap-1.5 text-slate-200 border border-slate-700">
+                        <i class="fa-solid fa-folder-open text-amber-400"></i> टेम्पलेट मेनु <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </button>
+                    <div class="hidden group-hover:block absolute left-0 w-52 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 py-1 z-50">
+                        <button onclick="clearCanvasCompletely()" class="w-full text-left px-4 py-2 hover:bg-slate-100 flex items-center gap-2 text-rose-600">
+                            <i class="fa-solid fa-file-circle-plus"></i> नया साफ़ पेज शुरू करें
+                        </button>
+                        <button onclick="openModal('template-modal')" class="w-full text-left px-4 py-2 hover:bg-slate-100 flex items-center gap-2 text-indigo-600">
+                            <i class="fa-solid fa-bookmark"></i> वर्तमान टेम्पलेट सहेजें
+                        </button>
+                        <hr class="my-1 border-slate-200">
+                        <div class="px-3 py-1 text-[11px] font-bold text-slate-400 uppercase">Google Sheet से टेम्पलेट</div>
+                        <div id="saved-templates-menu" class="max-h-40 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <button onclick="openModal('page-setup-modal')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 flex items-center gap-1.5 text-slate-200 border border-slate-700">
+                    <i class="fa-solid fa-sliders text-sky-400"></i> पेज सेटअप
+                </button>
+
+                <button onclick="openModal('header-setup-modal')" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 flex items-center gap-1.5 text-slate-200 border border-slate-700">
+                    <i class="fa-solid fa-heading text-purple-400"></i> संस्था शीर्षक
+                </button>
+
+                <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
+
+                <button onclick="switchTab('editor')" id="tab-editor-btn" class="px-3.5 py-1.5 rounded bg-indigo-600 text-white font-semibold shadow">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i> संपादक
+                </button>
+                <button onclick="switchTab('table')" id="tab-table-btn" class="px-3.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                    <i class="fa-solid fa-table-cells mr-1"></i> डेटा तालिका (<span id="var-count-badge">0</span>)
+                </button>
+                <button onclick="switchTab('preview')" id="tab-preview-btn" class="px-3.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                    <i class="fa-solid fa-print mr-1"></i> प्रिंट / एक्सपोर्ट (<span id="records-count-badge">0</span>)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="editor-toolbar" class="sticky top-14 z-40 bg-white border-b border-slate-300 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+            
+            <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-slate-400 font-semibold uppercase text-[10px]">फ़ॉन्ट:</span>
+                <select id="body-font-family" onchange="applyBodyFormatting()" class="border border-slate-300 rounded px-2 py-1 bg-slate-50 focus:ring-1 focus:ring-indigo-500">
+                    <option value="font-hind">Hind (हिन्दी)</option>
+                    <option value="font-noto">Noto Sans Devanagari</option>
+                    <option value="font-anek">Anek Devanagari</option>
+                    <option value="font-gotu">Gotu (गोतू)</option>
+                    <option value="font-rozha">Rozha One (रौझा)</option>
+                    <option value="font-yatra">Yatra One (यात्रा)</option>
+                    <option value="font-serif-std">Times / Serif</option>
+                    <option value="font-sans-std">Arial / Sans-Serif</option>
+                </select>
+
+                <select id="body-font-size" onchange="applyBodyFormatting()" class="border border-slate-300 rounded px-2 py-1 bg-slate-50 focus:ring-1 focus:ring-indigo-500">
+                    <option value="12px">12px</option>
+                    <option value="14px">14px</option>
+                    <option value="16px" selected>16px (सामान्य)</option>
+                    <option value="18px">18px</option>
+                    <option value="20px">20px</option>
+                    <option value="22px">22px</option>
+                </select>
+
+                <div class="flex border border-slate-300 rounded overflow-hidden bg-slate-50">
+                    <button onclick="execCmd('justifyLeft')" class="p-1.5 hover:bg-slate-200 text-slate-700" title="बायां"><i class="fa-solid fa-align-left"></i></button>
+                    <button onclick="execCmd('justifyCenter')" class="p-1.5 hover:bg-slate-200 text-slate-700" title="मध्य"><i class="fa-solid fa-align-center"></i></button>
+                    <button onclick="execCmd('justifyRight')" class="p-1.5 hover:bg-slate-200 text-slate-700" title="दायां"><i class="fa-solid fa-align-right"></i></button>
+                    <button onclick="execCmd('justifyFull')" class="p-1.5 hover:bg-slate-200 text-slate-700" title="जस्टिफाई"><i class="fa-solid fa-align-justify"></i></button>
+                </div>
+
+                <button onclick="execCmd('bold')" class="p-1.5 border border-slate-300 rounded bg-slate-50 hover:bg-slate-200 font-bold px-2.5" title="बोल्ड">B</button>
+                <button onclick="execCmd('italic')" class="p-1.5 border border-slate-300 rounded bg-slate-50 hover:bg-slate-200 italic px-2.5" title="इटैलिक">I</button>
+                <button onclick="execCmd('underline')" class="p-1.5 border border-slate-300 rounded bg-slate-50 hover:bg-slate-200 underline px-2.5" title="अंडरलाइन">U</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="openPlaceholderModal()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 shadow-sm transition">
+                    <i class="fa-solid fa-tag"></i> प्लेसहोल्डर जोड़ें
+                </button>
+                <button onclick="openFormulaModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 shadow-sm transition">
+                    <i class="fa-solid fa-calculator"></i> फॉर्मूला जोड़ें
+                </button>
+                <button onclick="removeSelectedOrHoveredTag()" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 shadow-sm transition">
+                    <i class="fa-solid fa-eraser"></i> प्लेसहोल्डर हटाएं
+                </button>
+                <button onclick="extractAndProceedToTable()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 shadow-sm transition">
+                    तालिका में दर्ज करें <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="floating-selection-toolbar" class="flex items-center space-x-1">
+        <button onmousedown="event.preventDefault(); execCmd('bold');" class="hover:bg-slate-700 px-2.5 py-1 rounded font-bold text-xs flex items-center gap-1 text-white" title="बोल्ड">
+            <i class="fa-solid fa-bold text-[10px]"></i> B
+        </button>
+        <button onmousedown="event.preventDefault(); execCmd('italic');" class="hover:bg-slate-700 px-2.5 py-1 rounded italic text-xs flex items-center gap-1 text-white" title="इटैलिक">
+            <i class="fa-solid fa-italic text-[10px]"></i> I
+        </button>
+        <button onmousedown="event.preventDefault(); execCmd('underline');" class="hover:bg-slate-700 px-2.5 py-1 rounded underline text-xs flex items-center gap-1 text-white" title="अंडरलाइन">
+            <i class="fa-solid fa-underline text-[10px]"></i> U
+        </button>
+        <div class="h-3 w-[1px] bg-slate-600 mx-1"></div>
+        <button onmousedown="event.preventDefault(); openPlaceholderModal();" class="bg-amber-500 hover:bg-amber-600 text-white text-[11px] px-2.5 py-1 rounded font-semibold flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-tag text-[10px]"></i> प्लेसहोल्डर बनाएं
+        </button>
+    </div>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-4">
+
+        <section id="section-editor" class="space-y-4">
+            <div class="bg-white px-4 py-2.5 rounded-xl shadow-sm border border-slate-300 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-tags text-indigo-600"></i>
+                    <span class="font-bold text-slate-700">पहचाने गए प्लेसहोल्डर्स एवं फॉर्मूले:</span>
+                </div>
+
+                <div id="detected-vars-list" class="flex flex-wrap gap-1.5 max-w-2xl">
+                    <span class="text-slate-400 italic">कोई नहीं</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center justify-center p-6 bg-slate-300 rounded-xl border border-slate-400 overflow-x-auto">
+                <div id="a4-editor-canvas" class="a4-page text-slate-800 flex flex-col justify-between relative">
+                    <div>
+                        <div id="header-container" class="border-b-2 border-slate-800 pb-3 mb-6 text-center">
+                            <h2 id="view-company-name" class="font-bold tracking-wide text-slate-900 leading-snug whitespace-pre-line font-rozha text-lg">
+                                न्यायालय नियंत्रक प्राधिकारी, उपादान भुगतान अधिनियम, 1972 एवं कार्यालय श्रम पदाधिकारी, जिला-रतलाम (म.प्र.)
+                            </h2>
+                            <p id="view-company-sub" class="text-xs text-slate-700 mt-1.5 whitespace-pre-line leading-relaxed">
+                                नवीन कलेक्टोरेट भवन, द्वितीय तल, कक्ष क्र. 229, रतलाम - 457001,  - 07412-270455&#10;E-mail : loratlam@mp.gov.in, loratlam2020@gmail.com
+                            </p>
+                        </div>
+
+                        <div id="letter-body-editor" contenteditable="true" oninput="scanForVariables();" class="letter-content font-hind text-base focus:outline-none focus:ring-1 focus:ring-indigo-300 p-2 rounded min-h-[550px]">
+                            <p class="text-right">क्रमांक/श्रम/2026/........... &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; रतलाम, दिनांक: <span class="var-tag" contenteditable="false">{{दिनांक}}</span></p>
+                            <br>
+                            <p>प्रति,<br>&nbsp;&nbsp;&nbsp;&nbsp;श्री/श्रीमती <strong><span class="var-tag" contenteditable="false">{{आवेदक_का_नाम}}</span></strong><br>&nbsp;&nbsp;&nbsp;&nbsp;पिता/पति: <span class="var-tag" contenteditable="false">{{पिता_का_नाम}}</span><br>&nbsp;&nbsp;&nbsp;&nbsp;पता: <span class="var-tag" contenteditable="false">{{पूर्ण_पता}}</span></p>
+                            <br>
+                            <p>विषय: <strong><span class="var-tag" contenteditable="false">{{विषय}}</span></strong> के संबंध में।</p>
+                            <br>
+                            <p>प्रथम नियुक्ति दिनांक: <span class="var-tag" contenteditable="false">{{प्रथम_नियुक्ति_दिनांक}}</span> &nbsp;&nbsp; सेवानिवृत्ति दिनांक: <span class="var-tag" contenteditable="false">{{सेवानिवृत्ति_दिनांक}}</span></p>
+                            <p>कुल सेवा अवधि: <strong><span class="var-tag formula-tag" contenteditable="false">{{=DATEDIFF_Y({{प्रथम_नियुक्ति_दिनांक}},{{सेवानिवृत्ति_दिनांक}})}}</span> वर्ष</strong></p>
+                            <br>
+                            <p>विवरण / कथन: <span class="var-tag kathan-tag" contenteditable="false">{{*मामले_का_विवरण}}</span></p>
+                            <br>
+                            <p>उपरोक्त विषय में प्रकरण क्रमांक <strong><span class="var-tag" contenteditable="false">{{प्रकरण_क्रमांक}}</span></strong> की आगामी सुनवाई दिनांक <strong><span class="var-tag" contenteditable="false">{{सुनवाई_दिनांक}}</span></strong> को नियत की गई है।</p>
+                            <br><br><br>
+                            <p class="text-right">नियंत्रक प्राधिकारी / श्रम पदाधिकारी<br>उपादान भुगतान अधिनियम, 1972<br>जिला-रतलाम (म.प्र.)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-table" class="hidden space-y-4">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-300">
+                <div class="flex flex-wrap justify-between items-center gap-4 border-b pb-4 mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center">
+                            <i class="fa-solid fa-table-list text-indigo-600 mr-2"></i> डेटा प्रविष्टि तालिका (Multi-Record Entry Table)
+                        </h2>
+                        <p class="text-xs text-slate-500">किसी भी सेल पर क्लिक करके सीधे फॉर्मूला लागू कर सकते हैं। <span class="text-emerald-700 font-semibold">'सभी रिकॉर्ड में लागू करें'</span> बटन से पूरा कॉलम स्वतः अपडेट हो जाएगा।</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelUpload(event)">
+                        <button onclick="document.getElementById('excel-file-input').click()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs md:text-sm px-3.5 py-2 rounded-lg font-medium flex items-center shadow transition" title="Excel (.xlsx, .xls, .csv) फ़ाइल से डेटा अपलोड करें">
+                            <i class="fa-solid fa-file-excel mr-1.5"></i> Excel से डेटा लें
+                        </button>
+                        <button onclick="downloadSampleExcel()" class="bg-slate-100 hover:bg-teal-50 text-teal-800 border border-teal-300 text-xs md:text-sm px-3 py-2 rounded-lg font-medium flex items-center transition" title="सही कॉलम नामों वाली खाली Excel शीट डाउनलोड करें">
+                            <i class="fa-solid fa-download mr-1.5"></i> सैंपल Excel
+                        </button>
+                        <button onclick="addTableRow()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm px-3.5 py-2 rounded-lg font-medium flex items-center shadow transition">
+                            <i class="fa-solid fa-plus mr-1.5"></i> नया रिकॉर्ड जोड़ें
+                        </button>
+                        <button onclick="clearAllTableData()" class="bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs md:text-sm px-3 py-2 rounded-lg font-medium border border-slate-300 flex items-center transition">
+                            <i class="fa-solid fa-trash-can mr-1.5"></i> साफ़ करें
+                        </button>
+                        <button onclick="generateAllLetters()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs md:text-sm px-4 py-2 rounded-lg font-semibold flex items-center shadow transition">
+                            पत्र जनरेट करें <i class="fa-solid fa-wand-magic-sparkles ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto max-h-[500px] rounded-lg border border-slate-300 shadow-inner table-scrollbar relative">
+                    <table id="records-table" class="w-full text-left text-sm text-slate-700 border-collapse min-w-max">
+                        <thead class="bg-slate-100 text-slate-800 text-xs uppercase font-bold sticky top-0 border-b border-slate-300 z-20">
+                            <tr id="table-header-row"></tr>
+                        </thead>
+                        <tbody id="table-body-rows" class="divide-y divide-slate-200 bg-white"></tbody>
+                    </table>
+                </div>
+
+                <div id="table-empty-msg" class="hidden text-center py-10 text-slate-400 text-sm">
+                    <i class="fa-solid fa-circle-exclamation text-2xl text-amber-500 mb-2 block"></i>
+                    कोई प्लेसहोल्डर नहीं मिला! संपादक में जाएं और प्लेसहोल्डर या फॉर्मूला जोड़ें।
+                </div>
+            </div>
+        </section>
+
+        <section id="section-preview" class="hidden space-y-4">
+            <div id="preview-control-bar" class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-300 flex flex-wrap justify-between items-center gap-4 sticky top-14 z-30 no-print">
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm font-semibold text-slate-700">कुल जनरेटेड पत्र: <span id="generated-count" class="bg-indigo-100 text-indigo-800 font-bold px-2.5 py-0.5 rounded-full text-sm">0</span></span>
+                    <button onclick="switchTab('table')" class="text-xs text-indigo-600 hover:underline"><i class="fa-solid fa-pen"></i> डेटा बदलो</button>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs md:text-sm px-4 py-2 rounded-lg font-medium flex items-center shadow transition">
+                        <i class="fa-solid fa-print mr-1.5 text-amber-400"></i> सीधे प्रिंट करें
+                    </button>
+                    <button onclick="exportAllPDF()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs md:text-sm px-4 py-2 rounded-lg font-medium flex items-center shadow transition">
+                        <i class="fa-solid fa-file-pdf mr-1.5"></i> PDF डाउनलोड
+                    </button>
+                    <button onclick="exportAllDoc()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm px-4 py-2 rounded-lg font-medium flex items-center shadow transition">
+                        <i class="fa-solid fa-file-word mr-1.5"></i> Word (.doc) डाउनलोड
+                    </button>
+                </div>
+            </div>
+
+            <div id="print-area" class="space-y-8 flex flex-col items-center py-6 bg-slate-300 rounded-xl"></div>
+        </section>
+
+    </main>
+
+    <!-- MODAL 1: PAGE SETUP MODAL -->
+    <div id="page-setup-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-sky-500"></i> पेज सेटअप एवं मार्जिन
+                </h3>
+                <button onclick="closeModal('page-setup-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">टॉप मार्जिन (mm)</label>
+                    <input type="number" id="setup-margin-top" value="20" min="0" max="60" oninput="applyPageSetup()" class="w-full border border-slate-300 rounded p-2">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">बॉटम मार्जिन (mm)</label>
+                    <input type="number" id="setup-margin-bottom" value="20" min="0" max="60" oninput="applyPageSetup()" class="w-full border border-slate-300 rounded p-2">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">लेफ्ट मार्जिन (mm)</label>
+                    <input type="number" id="setup-margin-left" value="20" min="0" max="60" oninput="applyPageSetup()" class="w-full border border-slate-300 rounded p-2">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 uppercase mb-1">राइट मार्जिन (mm)</label>
+                    <input type="number" id="setup-margin-right" value="20" min="0" max="60" oninput="applyPageSetup()" class="w-full border border-slate-300 rounded p-2">
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-2 border-t text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">पेज दिशा (Orientation)</label>
+                    <select id="setup-orientation" onchange="applyPageSetup()" class="w-full border border-slate-300 rounded p-2">
+                        <option value="portrait">पोर्ट्रेट (Portrait - खड़ा पेज)</option>
+                        <option value="landscape">लैंडस्केप (Landscape - आड़ा पेज)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t">
+                <button onclick="resetPageMargins()" class="text-xs text-indigo-600 font-semibold hover:underline">डीफ़ॉल्ट सेट करें</button>
+                <button onclick="closeModal('page-setup-modal')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-semibold">सहेजें व बंद करें</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: HEADER SETUP MODAL -->
+    <div id="header-setup-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-heading text-purple-600"></i> संस्था शीर्षक एवं फ़ॉन्ट सेटिंग
+                </h3>
+                <button onclick="closeModal('header-setup-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 uppercase mb-1">संस्था / नाम (मुख्य शीर्षक)</label>
+                    <textarea id="cfg-company-name" rows="2" oninput="updateDocumentHeader()" class="w-full border border-slate-300 rounded-lg p-2 font-semibold focus:ring-1 focus:ring-indigo-500">न्यायालय नियंत्रक प्राधिकारी, उपादान भुगतान अधिनियम, 1972 एवं कार्यालय श्रम पदाधिकारी, जिला-रतलाम (म.प्र.)</textarea>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 uppercase mb-1">पता / उप-शीर्षक (Sub-header)</label>
+                    <textarea id="cfg-company-sub" rows="2" oninput="updateDocumentHeader()" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-indigo-500">नवीन कलेक्टोरेट भवन, द्वितीय तल, कक्ष क्र. 229, रतलाम - 457001,  - 07412-270455&#10;E-mail : loratlam@mp.gov.in, loratlam2020@gmail.com</textarea>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 border-t pt-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">शीर्षक फ़ॉन्ट</label>
+                        <select id="hdr-font-family" onchange="updateHeaderFormatting()" class="w-full border border-slate-300 rounded p-1.5">
+                            <option value="font-rozha">Rozha One (शाही)</option>
+                            <option value="font-yatra">Yatra One (यात्रा)</option>
+                            <option value="font-hind">Hind (हिन्दी)</option>
+                            <option value="font-noto">Noto Sans Devanagari</option>
+                            <option value="font-gotu">Gotu (गोतू)</option>
+                            <option value="font-serif-std">Times / Serif</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">फ़ॉन्ट आकार</label>
+                        <select id="hdr-font-size" onchange="updateHeaderFormatting()" class="w-full border border-slate-300 rounded p-1.5">
+                            <option value="text-sm">20px (छोटा)</option>
+                            <option value="text-base">25px (सामान्य)</option>
+                            <option value="text-lg" selected>30px (मध्यम)</option>
+                            <option value="text-xl">35px (बड़ा)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">एलाइनमेंट</label>
+                        <select id="hdr-alignment" onchange="updateHeaderFormatting()" class="w-full border border-slate-300 rounded p-1.5">
+                            <option value="text-center" selected>सेंटर (Center)</option>
+                            <option value="text-left">लेफ्ट (Left)</option>
+                            <option value="text-right">Right</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-t pt-3">
+                    <span class="font-semibold text-slate-700">हेडर दिखाएं / छिपाएं</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="hdr-show-toggle" checked onchange="toggleHeaderShow()" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t">
+                <button onclick="closeModal('header-setup-modal')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-4 py-2 rounded-lg font-semibold">सहेजें व बंद करें</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: PLACEHOLDER CREATION MODAL -->
+    <div id="placeholder-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-tag text-amber-500"></i> प्लेसहोल्डर विकल्प
+                </h3>
+                <button onclick="closeModal('placeholder-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div id="existing-vars-container" class="bg-indigo-50 border border-indigo-200 rounded-lg p-2.5">
+                    <label class="block font-bold text-indigo-900 mb-1">
+                        <i class="fa-solid fa-repeat text-indigo-600 mr-1"></i> पहले से दर्ज प्लेसहोल्डर पुनः चुनें:
+                    </label>
+                    <select id="ph-existing-select" onchange="fillFromExistingSelect()" class="w-full border border-indigo-300 rounded p-2 focus:ring-1 focus:ring-indigo-500 font-medium bg-white">
+                        <option value="">-- पहले से मौजूद प्लेसहोल्डर चुनें --</option>
+                    </select>
+                </div>
+
+                <div class="text-center font-bold text-slate-400 text-[11px] uppercase tracking-wider">- अथवा नया बनाएं -</div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">1. पिछले शब्दों / चयन से चुनें:</label>
+                    <select id="ph-dropdown-select" onchange="fillPlaceholderInputFromSelect()" class="w-full border border-slate-300 rounded p-2 focus:ring-1 focus:ring-indigo-500 font-medium bg-slate-50">
+                        <option value="">-- विकल्प चुनें --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">2. खुद नया शीर्षक दर्ज करें:</label>
+                    <input type="text" id="ph-custom-input" placeholder="उदा. आवेदक_का_नाम, प्रकरण_क्रमांक" class="w-full border border-slate-300 rounded p-2 focus:ring-1 focus:ring-indigo-500 font-semibold">
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
+                    <input type="checkbox" id="ph-is-kathan" class="mt-0.5 h-4 w-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500">
+                    <label for="ph-is-kathan" class="cursor-pointer">
+                        <span class="font-bold text-amber-900 block">यह "कथन / बड़ा पैराग्राफ" प्लेसहोल्डर है</span>
+                        <span class="text-[11px] text-amber-700 block">इसे टिक करने पर डेटा तालिका में बड़ा पॉपअप एडिट बॉक्स मिलेगा जहाँ विस्तृत विवरण/पैराग्राफ लिखा जा सकेगा।</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t text-xs">
+                <button onclick="closeModal('placeholder-modal')" class="px-3 py-1.5 border border-slate-300 rounded font-semibold text-slate-600">रद्द करें</button>
+                <button onclick="confirmCreatePlaceholder()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded font-semibold shadow">प्लेसहोल्डर बनाएं</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: FORMULA CREATION MODAL -->
+    <div id="formula-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-5 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-calculator text-emerald-600"></i> फॉर्मूला प्लेसहोल्डर जोड़ें
+                </h3>
+                <button onclick="closeModal('formula-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">फॉर्मूला का प्रकार चुनें:</label>
+                    <select id="formula-type-select" class="w-full border border-slate-300 rounded p-2 focus:ring-1 focus:ring-emerald-500 font-semibold bg-slate-50">
+                        <option value="DATEDIFF_Y">दिनांक अंतर - कुल वर्ष (DATEDIFF_Y)</option>
+                        <option value="DATEDIFF_M">दिनांक अंतर - कुल माह (DATEDIFF_M)</option>
+                        <option value="DATEDIFF_D">दिनांक अंतर - कुल दिन (DATEDIFF_D)</option>
+                        <option value="SUM">जोड़ / योग (SUM)</option>
+                        <option value="SUBTRACT">घटाव / अंतर (SUBTRACT)</option>
+                        <option value="MULTIPLY">गुणा (MULTIPLY)</option>
+                        <option value="PERCENT">प्रतिशत (PERCENTAGE)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">पहला फ़ील्ड (Variable A):</label>
+                        <select id="formula-var-1" class="w-full border border-slate-300 rounded p-2 font-medium bg-white">
+                            <option value="">-- चुनें --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">दूसरा फ़ील्ड (Variable B):</label>
+                        <select id="formula-var-2" class="w-full border border-slate-300 rounded p-2 font-medium bg-white">
+                            <option value="">-- चुनें --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50 border border-emerald-200 rounded p-2.5 text-[11px] text-emerald-900 leading-relaxed">
+                    <span class="font-bold">उदा:</span> प्रथम नियुक्ति दिनांक और सेवानिवृत्ति दिनांक चुनकर दोनों के बीच कुल वर्षों की संख्या स्वतः पत्र में आ जाएगी।
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t text-xs">
+                <button onclick="closeModal('formula-modal')" class="px-3 py-1.5 border border-slate-300 rounded font-semibold text-slate-600">रद्द करें</button>
+                <button onclick="confirmCreateFormula()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded font-semibold shadow">फॉर्मूला जोड़ें</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: CELL FORMULA MODAL -->
+    <div id="cell-formula-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-5 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-calculator text-emerald-600"></i> सेल में फॉर्मूला लागू करें (<span id="cell-var-name-display" class="text-indigo-600"></span>)
+                </h3>
+                <button onclick="closeModal('cell-formula-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">फॉर्मूला का प्रकार चुनें:</label>
+                    <select id="cell-formula-type" class="w-full border border-slate-300 rounded p-2 focus:ring-1 focus:ring-emerald-500 font-semibold bg-slate-50">
+                        <option value="DATEDIFF_Y">दिनांक अंतर - कुल वर्ष (DATEDIFF_Y)</option>
+                        <option value="DATEDIFF_M">दिनांक अंतर - कुल माह (DATEDIFF_M)</option>
+                        <option value="DATEDIFF_D">दिनांक अंतर - कुल दिन (DATEDIFF_D)</option>
+                        <option value="SUM">जोड़ / योग (SUM)</option>
+                        <option value="SUBTRACT">घटाव / अंतर (SUBTRACT)</option>
+                        <option value="MULTIPLY">गुणा (MULTIPLY)</option>
+                        <option value="PERCENT">प्रतिशत (PERCENTAGE)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">पहला फ़ील्ड (Variable A):</label>
+                        <select id="cell-formula-var-1" class="w-full border border-slate-300 rounded p-2 font-medium bg-white"></select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">दूसरा फ़ील्ड (Variable B):</label>
+                        <select id="cell-formula-var-2" class="w-full border border-slate-300 rounded p-2 font-medium bg-white"></select>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50 border border-indigo-200 rounded p-2 text-[11px] text-indigo-900">
+                    <i class="fa-solid fa-circle-info text-indigo-600 mr-1"></i> <strong>'सभी रिकॉर्ड में लागू करें'</strong> बटन पर क्लिक करते ही इस कॉलम के सभी रिकॉर्ड्स (Rows) में यह गणना स्वतः भर जाएगी।
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center gap-2 pt-3 border-t text-xs">
+                <button onclick="applyCellFormula(false)" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg font-semibold shadow">
+                    इसी सेल में गणना करें
+                </button>
+                <button onclick="applyCellFormula(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> सभी रिकॉर्ड में लागू करें
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6: KATHAN / PARAGRAPH POPUP EDITOR MODAL -->
+    <div id="kathan-editor-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-5 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-paragraph text-indigo-600"></i> कथन / विस्तृत विवरण दर्ज करें (<span id="kathan-title-display"></span>)
+                </h3>
+                <button onclick="closeModal('kathan-editor-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-2 text-xs">
+                <label class="block font-semibold text-slate-700">पैराग्राफ अथवा विस्तृत विवरण यहाँ टाइप करें:</label>
+                <textarea id="kathan-textarea" rows="8" placeholder="यहाँ विस्तृत विवरण / कथन टाइप करें..." class="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm leading-relaxed"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t text-xs">
+                <button onclick="closeModal('kathan-editor-modal')" class="px-3.5 py-2 border border-slate-300 rounded-lg font-semibold text-slate-600">रद्द करें</button>
+                <button onclick="saveKathanText()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-semibold shadow">सहेजें (Save Paragraph)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 7: SAVE TEMPLATE MODAL -->
+    <div id="template-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full p-5 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-bookmark text-indigo-600"></i> नया टेम्पलेट सहेजें (Google Sheet)
+                </h3>
+                <button onclick="closeModal('template-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="space-y-2 text-xs">
+                <label class="block font-semibold text-slate-700">टेम्पलेट का नाम दर्ज़ करें:</label>
+                <input type="text" id="new-template-name" placeholder="उदा. नोटिस / आदेश पत्र" class="w-full border border-slate-300 rounded p-2 focus:ring-1 focus:ring-indigo-500">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t text-xs">
+                <button onclick="closeModal('template-modal')" class="px-3 py-1.5 border border-slate-300 rounded font-semibold text-slate-600">रद्द करें</button>
+                <button onclick="saveCurrentTemplate()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded font-semibold">Google Sheet में सेव करें</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // PASTE YOUR APPS SCRIPT WEB APP URL HERE:
+        // ==========================================
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyYRSG4eSEq1fT3mGIq4Tit1YjDtiwekrgxLMXldHx9-pT3j71eAPy4CXWqkrgMGFA7Mg/exec"; 
+
+        let templateVars = [];      
+        let formulaVars = [];       
+        let recordsData = [];
+        let savedTemplates = {};
+        let currentLoggedInUserId = null;
+        let currentSavedSelection = null;
+        let activeKathanCell = { rowIndex: null, varName: null };
+        let activeCellTarget = { rowIndex: null, varName: null };
+
+        window.onload = function() {
+            const savedUser = localStorage.getItem("loggedInUser");
+            if (savedUser) {
+                try {
+                    const user = JSON.parse(savedUser);
+                    currentLoggedInUserId = user.userId || user.username || 'default_user';
+                    document.getElementById('user-display-name').innerText = user.fullName || currentLoggedInUserId;
+                } catch(e) {
+                    currentLoggedInUserId = 'default_user';
+                }
+            } else {
+                currentLoggedInUserId = 'guest_user';
+            }
+
+            fetchTemplatesFromGoogleSheet();
+            updateDocumentHeader();
+            applyPageSetup();
+            scanForVariables();
+            setupTextSelectionListener();
+        };
+
+        // FETCH TEMPLATES FROM GOOGLE SHEET FOR CURRENT USER
+        function fetchTemplatesFromGoogleSheet() {
+            if (!currentLoggedInUserId || GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+
+            const menu = document.getElementById('saved-templates-menu');
+            if(menu) menu.innerHTML = '<div class="px-4 py-2 text-xs text-indigo-600 italic">लोड हो रहा है...</div>';
+
+            fetch(`${GOOGLE_SCRIPT_URL}?userId=${encodeURIComponent(currentLoggedInUserId)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success" && data.templates) {
+                        savedTemplates = data.templates;
+                        renderSavedTemplatesMenu();
+                    }
+                })
+                .catch(err => {
+                    console.error("Error fetching templates:", err);
+                    if(menu) menu.innerHTML = '<div class="px-4 py-1.5 text-rose-500 italic text-[11px]">लोड करने में विफल</div>';
+                });
+        }
+
+        // SAVE TEMPLATE TO GOOGLE SHEET
+        function saveCurrentTemplate() {
+            const nameInput = document.getElementById('new-template-name');
+            if(!nameInput) return;
+            const name = nameInput.value.trim();
+            if(!name) {
+                alert("कृपया टेम्पलेट का नाम दर्ज करें।");
+                return;
+            }
+
+            if (GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+                alert("कृपया कोड में अपना Google Apps Script Web App URL सेट करें!");
+                return;
+            }
+
+            const payload = {
+                action: "saveTemplate",
+                userId: currentLoggedInUserId,
+                templateName: name,
+                companyName: document.getElementById('cfg-company-name').value,
+                companySub: document.getElementById('cfg-company-sub').value,
+                bodyHtml: document.getElementById('letter-body-editor').innerHTML
+            };
+
+            const btn = event.target;
+            btn.innerText = "सेव हो रहा है...";
+            btn.disabled = true;
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors", // Required for Google Apps Script cross-origin
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                alert(`टेम्पलेट "${name}" Google Sheet में सफलतापूर्वक सहेज लिया गया है!`);
+                closeModal('template-modal');
+                nameInput.value = '';
+                btn.innerText = "Google Sheet में सेव करें";
+                btn.disabled = false;
+                
+                // Refresh list after short delay
+                setTimeout(fetchTemplatesFromGoogleSheet, 1500);
+            })
+            .catch(err => {
+                alert("सेव करने में त्रुटि आई!");
+                btn.innerText = "Google Sheet में सेव करें";
+                btn.disabled = false;
+            });
+        }
+
+        function renderSavedTemplatesMenu() {
+            const menu = document.getElementById('saved-templates-menu');
+            if(!menu) return;
+            menu.innerHTML = '';
+            
+            const keys = Object.keys(savedTemplates);
+            if(keys.length === 0) {
+                menu.innerHTML = '<div class="px-4 py-1.5 text-slate-400 italic text-[11px]">कोई सहेजा गया टेम्पलेट नहीं</div>';
+                return;
+            }
+
+            keys.forEach(key => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left px-4 py-1.5 hover:bg-slate-100 flex items-center justify-between text-xs text-slate-700';
+                btn.innerHTML = `<span><i class="fa-solid fa-file-text text-emerald-600 mr-2"></i>${key}</span>`;
+                btn.onclick = () => loadSavedTemplateByName(key);
+                menu.appendChild(btn);
+            });
+        }
+
+        function loadSavedTemplateByName(key) {
+            if(!savedTemplates[key]) return;
+            const t = savedTemplates[key];
+            document.getElementById('cfg-company-name').value = t.companyName || '';
+            document.getElementById('cfg-company-sub').value = t.companySub || '';
+            document.getElementById('letter-body-editor').innerHTML = t.bodyHtml || '';
+            
+            updateDocumentHeader();
+            scanForVariables();
+            alert(`टेम्पलेट "${key}" सफलतापूर्वक लोड हो गया है!`);
+        }
+
+        function handleLogout() {
+            localStorage.removeItem("loggedInUser");
+            window.location.href = "index.html";
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function switchTab(activeTab, skipGenerate = false) {
+            const tabs = ['editor', 'table', 'preview'];
+
+            tabs.forEach(tab => {
+                const isCurrent = tab === activeTab;
+                const sectionElem = document.getElementById(`section-${tab}`);
+                if (sectionElem) {
+                    sectionElem.classList.toggle('hidden', !isCurrent);
+                }
+                
+                if (tab === 'editor') {
+                    const toolbar = document.getElementById('editor-toolbar');
+                    if(toolbar) toolbar.classList.toggle('hidden', !isCurrent);
+                }
+
+                const btn = document.getElementById(`tab-${tab}-btn`);
+                if (btn) {
+                    btn.className = isCurrent 
+                        ? 'px-3.5 py-1.5 rounded bg-indigo-600 text-white font-semibold shadow' 
+                        : 'px-3.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700';
+                }
+            });
+
+            if (activeTab === 'table') buildDataTable();
+            if (activeTab === 'preview' && !skipGenerate) generateAllLetters(true);
+        }
+
+        function setupTextSelectionListener() {
+            const popup = document.getElementById('floating-selection-toolbar');
+            if(!popup) return;
+            
+            document.addEventListener('selectionchange', () => {
+                const selection = window.getSelection();
+                const editor = document.getElementById('letter-body-editor');
+
+                if (!selection.isCollapsed && editor && editor.contains(selection.anchorNode)) {
+                    const range = selection.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+
+                    if (rect.width > 0) {
+                        popup.style.display = 'flex';
+                        popup.style.top = `${window.scrollY + rect.top - 42}px`;
+                        popup.style.left = `${window.scrollX + rect.left + (rect.width / 2) - 85}px`;
+                        return;
+                    }
+                }
+                popup.style.display = 'none';
+            });
+        }
+
+        function applyPageSetup() {
+            const marginTop = document.getElementById('setup-margin-top').value || 20;
+            const marginBottom = document.getElementById('setup-margin-bottom').value || 20;
+            const marginLeft = document.getElementById('setup-margin-left').value || 20;
+            const marginRight = document.getElementById('setup-margin-right').value || 20;
+            const orientation = document.getElementById('setup-orientation').value;
+
+            const editorCanvas = document.getElementById('a4-editor-canvas');
+            if(editorCanvas) {
+                editorCanvas.style.paddingTop = `${marginTop}mm`;
+                editorCanvas.style.paddingBottom = `${marginBottom}mm`;
+                editorCanvas.style.paddingLeft = `${marginLeft}mm`;
+                editorCanvas.style.paddingRight = `${marginRight}mm`;
+
+                if(orientation === 'landscape') {
+                    editorCanvas.classList.add('landscape');
+                } else {
+                    editorCanvas.classList.remove('landscape');
+                }
+            }
+
+            const generatedPages = document.querySelectorAll('#print-area .a4-page');
+            generatedPages.forEach(page => {
+                page.style.paddingTop = `${marginTop}mm`;
+                page.style.paddingBottom = `${marginBottom}mm`;
+                page.style.paddingLeft = `${marginLeft}mm`;
+                page.style.paddingRight = `${marginRight}mm`;
+
+                if(orientation === 'landscape') {
+                    page.classList.add('landscape');
+                } else {
+                    page.classList.remove('landscape');
+                }
+            });
+        }
+
+        function resetPageMargins() {
+            document.getElementById('setup-margin-top').value = 20;
+            document.getElementById('setup-margin-bottom').value = 20;
+            document.getElementById('setup-margin-left').value = 20;
+            document.getElementById('setup-margin-right').value = 20;
+            document.getElementById('setup-orientation').value = 'portrait';
+            applyPageSetup();
+        }
+
+        function updateDocumentHeader() {
+            const nameEl = document.getElementById('view-company-name');
+            const subEl = document.getElementById('view-company-sub');
+            if(nameEl) nameEl.innerText = document.getElementById('cfg-company-name').value || "";
+            if(subEl) subEl.innerText = document.getElementById('cfg-company-sub').value || "";
+        }
+
+        function updateHeaderFormatting() {
+            const font = document.getElementById('hdr-font-family').value;
+            const size = document.getElementById('hdr-font-size').value;
+            const align = document.getElementById('hdr-alignment').value;
+
+            const nameElem = document.getElementById('view-company-name');
+            if(nameElem) nameElem.className = `font-bold tracking-wide text-slate-900 leading-snug whitespace-pre-line ${font} ${size}`;
+
+            const container = document.getElementById('header-container');
+            if(container) container.className = `border-b-2 border-slate-800 pb-3 mb-6 ${align}`;
+        }
+
+        function toggleHeaderShow() {
+            const checked = document.getElementById('hdr-show-toggle').checked;
+            const container = document.getElementById('header-container');
+            if(container) container.style.display = checked ? 'block' : 'none';
+        }
+
+        function applyBodyFormatting() {
+            const font = document.getElementById('body-font-family').value;
+            const size = document.getElementById('body-font-size').value;
+
+            const letterBody = document.getElementById('letter-body-editor');
+            if(letterBody) {
+                letterBody.className = `letter-content text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-300 p-2 rounded min-h-[550px] ${font}`;
+                letterBody.style.fontSize = size;
+            }
+        }
+
+        function execCmd(command) {
+            document.execCommand(command, false, null);
+        }
+
+        function clearCanvasCompletely() {
+            if(confirm("क्या आप पूरे पत्र सामग्री को साफ़ करके नया साफ़ पृष्ठ शुरू करना चाहते हैं?")) {
+                document.getElementById('letter-body-editor').innerHTML = '<p><br></p>';
+                recordsData = [];
+                scanForVariables();
+            }
+        }
+
+        function scanForVariables() {
+            const editorElem = document.getElementById('letter-body-editor');
+            if(!editorElem) return;
+            const text = editorElem.innerText || editorElem.textContent;
+            
+            const regex = /\{\{([^}]+)\}\}/g;
+            let match;
+            const foundVars = new Map();
+            const foundFormulas = [];
+
+            while ((match = regex.exec(text)) !== null) {
+                const rawVar = match[1].trim();
+                if(rawVar.startsWith('=')) {
+                    foundFormulas.push(rawVar);
+                } else if(rawVar.startsWith('*')) {
+                    const cleanName = rawVar.substring(1).trim();
+                    if(cleanName) foundVars.set(cleanName, 'kathan');
+                } else {
+                    if(rawVar) foundVars.set(rawVar, 'standard');
+                }
+            }
+
+            templateVars = Array.from(foundVars.entries()).map(([name, type]) => ({ name, type }));
+            formulaVars = foundFormulas;
+            
+            const badgeContainer = document.getElementById('detected-vars-list');
+            if(!badgeContainer) return;
+            badgeContainer.innerHTML = '';
+            
+            if(templateVars.length === 0 && formulaVars.length === 0) {
+                badgeContainer.innerHTML = '<span class="text-xs text-slate-400 italic">कोई नहीं</span>';
+            } else {
+                templateVars.forEach(v => {
+                    const badge = document.createElement('span');
+                    const badgeClass = v.type === 'kathan' 
+                        ? 'bg-indigo-100 text-indigo-900 border-indigo-300' 
+                        : 'bg-amber-100 text-amber-900 border-amber-300';
+                    
+                    const typeIcon = v.type === 'kathan' ? '<i class="fa-solid fa-paragraph text-[10px] mr-1"></i>' : '';
+
+                    badge.className = `${badgeClass} border font-semibold text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1`;
+                    badge.innerHTML = `<span>${typeIcon}{{${v.type==='kathan'?'*':''}${v.name}}}</span> <i class="fa-solid fa-xmark text-[10px] opacity-70 cursor-pointer hover:opacity-100" onclick="removeVariableByName('${v.name}')" title="हटाएं"></i>`;
+                    badgeContainer.appendChild(badge);
+                });
+
+                formulaVars.forEach(f => {
+                    const badge = document.createElement('span');
+                    badge.className = 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-semibold text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1';
+                    badge.innerHTML = `<span><i class="fa-solid fa-calculator text-[10px] mr-1"></i>{{${f}}}</span> <i class="fa-solid fa-xmark text-[10px] opacity-70 cursor-pointer hover:opacity-100" onclick="removeFormulaByText('${f}')" title="हटाएं"></i>`;
+                    badgeContainer.appendChild(badge);
+                });
+            }
+
+            const varCountBadge = document.getElementById('var-count-badge');
+            if(varCountBadge) varCountBadge.innerText = templateVars.length;
+        }
+
+        function extractPrecedingWords(range) {
+            const editor = document.getElementById('letter-body-editor');
+            let words = [];
+            
+            try {
+                const preRange = range.cloneRange();
+                preRange.setStart(editor, 0);
+                preRange.setEnd(range.startContainer, range.startOffset);
+                
+                const rawText = preRange.toString();
+                const cleaned = rawText.replace(/\{\{[^}]*\}\}/g, ' ').replace(/[:;,।\-\/\\\(\)\[\]"']/g, ' ');
+                words = cleaned.trim().split(/\s+/).filter(w => w.length > 0);
+            } catch(e) {
+                words = [];
+            }
+
+            if (words.length < 4) {
+                let currentNode = range.startContainer;
+                let fullPrecedingText = "";
+
+                while (currentNode && currentNode !== editor) {
+                    let prevSibling = currentNode.previousSibling;
+                    while (prevSibling) {
+                        fullPrecedingText = (prevSibling.textContent || "") + " " + fullPrecedingText;
+                        prevSibling = prevSibling.previousSibling;
+                    }
+                    currentNode = currentNode.parentNode;
+                }
+
+                const cleanedFull = fullPrecedingText.replace(/\{\{[^}]*\}\}/g, ' ').replace(/[:;,।\-\/\\\(\)\[\]"']/g, ' ');
+                const allWords = cleanedFull.trim().split(/\s+/).filter(w => w.length > 0);
+                
+                if (allWords.length > 0) {
+                    words = allWords;
+                }
+            }
+
+            return words.slice(-4);
+        }
+
+        function openPlaceholderModal() {
+            const selection = window.getSelection();
+            let selectedText = "";
+            let precedingWords = [];
+
+            if (selection.rangeCount && !selection.isCollapsed) {
+                currentSavedSelection = selection.getRangeAt(0).cloneRange();
+                selectedText = selection.toString();
+                precedingWords = extractPrecedingWords(currentSavedSelection);
+            } else {
+                currentSavedSelection = null;
+            }
+
+            const existingSelect = document.getElementById('ph-existing-select');
+            existingSelect.innerHTML = '<option value="">-- पहले से मौजूद प्लेसहोल्डर चुनें --</option>';
+            if(templateVars.length > 0) {
+                document.getElementById('existing-vars-container').classList.remove('hidden');
+                templateVars.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = `${v.type==='kathan'?'*':''}${v.name}`;
+                    opt.innerText = `{{${v.type==='kathan'?'*':''}${v.name}}}`;
+                    existingSelect.appendChild(opt);
+                });
+            } else {
+                document.getElementById('existing-vars-container').classList.add('hidden');
+            }
+
+            const dropdown = document.getElementById('ph-dropdown-select');
+            dropdown.innerHTML = '<option value="">-- विकल्प चुनें --</option>';
+
+            let autoSuggestedTitle = "";
+
+            if (precedingWords.length > 0) {
+                const labelWords = precedingWords.join('_');
+                autoSuggestedTitle = labelWords;
+
+                const optPre = document.createElement('option');
+                optPre.value = labelWords;
+                optPre.innerText = `[पहले/ऊपर के 4 शब्द]: ${labelWords.replace(/_/g, ' ')}`;
+                optPre.selected = true;
+                dropdown.appendChild(optPre);
+            }
+
+            if (selectedText && selectedText.trim()) {
+                const wordsSelected = selectedText.trim().replace(/[:;,।\-\/\\\(\)\[\]"']/g, ' ').split(/\s+/).filter(Boolean);
+                if (wordsSelected.length > 0) {
+                    const selFirst4 = wordsSelected.slice(0, 4).join('_');
+                    
+                    const optSel = document.createElement('option');
+                    optSel.value = selFirst4;
+                    optSel.innerText = `[चयनित शब्द]: ${selFirst4.replace(/_/g, ' ')}`;
+                    if (!autoSuggestedTitle) {
+                        optSel.selected = true;
+                        autoSuggestedTitle = selFirst4;
+                    }
+                    dropdown.appendChild(optSel);
+                }
+            }
+
+            document.getElementById('ph-custom-input').value = autoSuggestedTitle;
+            document.getElementById('ph-is-kathan').checked = false;
+
+            const presetTitles = [
+                "दिनांक", "आवेदक_का_नाम", "पिता_का_नाम", "पूर्ण_पता", "विषय", "प्रकरण_क्रमांक", 
+                "सुनवाई_दिनांक", "राशि", "पदनाम", "विभाग", "मामले_का_विवरण"
+            ];
+
+            presetTitles.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.innerText = t.replace(/_/g, ' ');
+                dropdown.appendChild(opt);
+            });
+
+            openModal('placeholder-modal');
+        }
+
+        function fillFromExistingSelect() {
+            const val = document.getElementById('ph-existing-select').value;
+            if(val) {
+                if(val.startsWith('*')) {
+                    document.getElementById('ph-custom-input').value = val.substring(1);
+                    document.getElementById('ph-is-kathan').checked = true;
+                } else {
+                    document.getElementById('ph-custom-input').value = val;
+                    document.getElementById('ph-is-kathan').checked = false;
+                }
+            }
+        }
+
+        function fillPlaceholderInputFromSelect() {
+            const val = document.getElementById('ph-dropdown-select').value;
+            if(val) {
+                document.getElementById('ph-custom-input').value = val;
+            }
+        }
+
+        function confirmCreatePlaceholder() {
+            const customName = document.getElementById('ph-custom-input').value.trim();
+            if(!customName) {
+                alert("कृपया प्लेसहोल्डर का नाम दर्ज करें अथवा ड्रॉपडाउन से चुनें।");
+                return;
+            }
+
+            const isKathan = document.getElementById('ph-is-kathan').checked;
+            const cleanVarName = customName.replace(/[\{\}\*]/g, '').trim().replace(/\s+/g, '_');
+            const fullTagText = `{{${isKathan ? '*' : ''}${cleanVarName}}}`;
+
+            if(currentSavedSelection) {
+                const range = currentSavedSelection;
+                range.deleteContents();
+
+                const varSpan = document.createElement('span');
+                varSpan.className = `var-tag ${isKathan ? 'kathan-tag' : ''}`;
+                varSpan.setAttribute('contenteditable', 'false');
+                varSpan.innerText = fullTagText;
+                
+                varSpan.onclick = function(e) {
+                    if(confirm(`क्या आप प्लेसहोल्डर "${varSpan.innerText}" को हटाना चाहते हैं?`)) {
+                        removeTagNode(varSpan);
+                    }
+                };
+
+                range.insertNode(varSpan);
+            } else {
+                const varSpan = document.createElement('span');
+                varSpan.className = `var-tag ${isKathan ? 'kathan-tag' : ''}`;
+                varSpan.setAttribute('contenteditable', 'false');
+                varSpan.innerText = fullTagText;
+
+                varSpan.onclick = function(e) {
+                    if(confirm(`क्या आप प्लेसहोल्डर "${varSpan.innerText}" को हटाना चाहते हैं?`)) {
+                        removeTagNode(varSpan);
+                    }
+                };
+
+                const editor = document.getElementById('letter-body-editor');
+                editor.appendChild(varSpan);
+            }
+
+            scanForVariables();
+            closeModal('placeholder-modal');
+        }
+
+        function openFormulaModal() {
+            scanForVariables();
+            const select1 = document.getElementById('formula-var-1');
+            const select2 = document.getElementById('formula-var-2');
+
+            if(!select1 || !select2) return;
+            select1.innerHTML = '<option value="">-- चुनें --</option>';
+            select2.innerHTML = '<option value="">-- चुनें --</option>';
+
+            templateVars.forEach(v => {
+                const opt1 = document.createElement('option');
+                opt1.value = `{{${v.name}}}`;
+                opt1.innerText = `${v.name.replace(/_/g, ' ')}`;
+                select1.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = `{{${v.name}}}`;
+                opt2.innerText = `${v.name.replace(/_/g, ' ')}`;
+                select2.appendChild(opt2);
+            });
+
+            openModal('formula-modal');
+        }
+
+        function confirmCreateFormula() {
+            const type = document.getElementById('formula-type-select').value;
+            const var1 = document.getElementById('formula-var-1').value;
+            const var2 = document.getElementById('formula-var-2').value;
+
+            if(!var1 || !var2) {
+                alert("कृपया फॉर्मूला हेतु दोनों फ़ील्ड्स (Variables) चुनें।");
+                return;
+            }
+
+            const formulaText = `{{=${type}(${var1},${var2})}}`;
+
+            const editor = document.getElementById('letter-body-editor');
+            const varSpan = document.createElement('span');
+            varSpan.className = 'var-tag formula-tag';
+            varSpan.setAttribute('contenteditable', 'false');
+            varSpan.innerText = formulaText;
+
+            varSpan.onclick = function(e) {
+                if(confirm(`क्या आप फॉर्मूला "${varSpan.innerText}" को हटाना चाहते हैं?`)) {
+                    removeTagNode(varSpan);
+                }
+            };
+
+            editor.appendChild(varSpan);
+            scanForVariables();
+            closeModal('formula-modal');
+        }
+
+        function removeTagNode(node) {
+            const rawText = node.innerText.replace(/[\{\}]/g, '');
+            const textNode = document.createTextNode(rawText);
+            node.parentNode.replaceChild(textNode, node);
+            scanForVariables();
+        }
+
+        function removeSelectedOrHoveredTag() {
+            const tags = document.querySelectorAll('#letter-body-editor .var-tag');
+            if(tags.length === 0) {
+                alert("कोई प्लेसहोल्डर टैग मौजूद नहीं है।");
+                return;
+            }
+
+            const lastTag = tags[tags.length - 1];
+            if(confirm(`क्या आप आख़िरी प्लेसहोल्डर "${lastTag.innerText}" को हटाना चाहते हैं?`)) {
+                removeTagNode(lastTag);
+            }
+        }
+
+        function removeVariableByName(varName) {
+            const tags = document.querySelectorAll('#letter-body-editor .var-tag');
+            tags.forEach(tag => {
+                if(tag.innerText.includes(varName)) {
+                    removeTagNode(tag);
+                }
+            });
+            scanForVariables();
+        }
+
+        function removeFormulaByText(formulaText) {
+            const tags = document.querySelectorAll('#letter-body-editor .var-tag');
+            tags.forEach(tag => {
+                if(tag.innerText.includes(formulaText)) {
+                    removeTagNode(tag);
+                }
+            });
+            scanForVariables();
+        }
+
+        function extractAndProceedToTable() {
+            scanForVariables();
+            if(templateVars.length === 0 && formulaVars.length === 0) {
+                alert("आपके पत्र में कोई प्लेसहोल्डर या फॉर्मूला नहीं मिला। कृपया प्लेसहोल्डर जोड़ें।");
+            }
+            switchTab('table');
+        }
+
+        function buildDataTable() {
+            scanForVariables();
+            const headerRow = document.getElementById('table-header-row');
+            const bodyRows = document.getElementById('table-body-rows');
+            const emptyMsg = document.getElementById('table-empty-msg');
+
+            if(!headerRow || !bodyRows) return;
+
+            headerRow.innerHTML = '';
+            bodyRows.innerHTML = '';
+
+            if(templateVars.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                return;
+            } else {
+                emptyMsg.classList.add('hidden');
+            }
+
+            const sNoTh = document.createElement('th');
+            sNoTh.className = 'p-3 w-12 text-center border-r border-slate-300 bg-slate-100 sticky left-0 z-30 shadow-sm';
+            sNoTh.innerText = '#';
+            headerRow.appendChild(sNoTh);
+
+            templateVars.forEach(v => {
+                const th = document.createElement('th');
+                th.className = 'p-3 border-r border-slate-300 text-indigo-900 font-semibold min-w-[200px]';
+                
+                if(v.type === 'kathan') {
+                    th.innerHTML = `<i class="fa-solid fa-paragraph text-xs text-indigo-600 mr-1"></i> ${v.name.replace(/_/g, ' ')} <span class="text-[10px] text-indigo-500 font-normal block">(कथन)</span>`;
+                } else {
+                    th.innerHTML = `<i class="fa-solid fa-tag text-xs text-amber-600 mr-1"></i> ${v.name.replace(/_/g, ' ')}`;
+                }
+                headerRow.appendChild(th);
+            });
+
+            const actionTh = document.createElement('th');
+            actionTh.className = 'p-3 text-center w-16 bg-slate-100 border-l border-slate-300 sticky right-0 z-30 shadow-sm';
+            actionTh.innerText = 'हटाएं';
+            headerRow.appendChild(actionTh);
+
+            if(recordsData.length === 0) {
+                addTableRow();
+            } else {
+                recordsData.forEach((record, index) => renderRowInput(record, index));
+            }
+
+            const recordsCountBadge = document.getElementById('records-count-badge');
+            if(recordsCountBadge) recordsCountBadge.innerText = recordsData.length;
+        }
+
+        function addTableRow() {
+            const newRecord = {};
+            templateVars.forEach(v => {
+                newRecord[v.name] = '';
+            });
+            recordsData.push(newRecord);
+            renderRowInput(newRecord, recordsData.length - 1);
+            const recordsCountBadge = document.getElementById('records-count-badge');
+            if(recordsCountBadge) recordsCountBadge.innerText = recordsData.length;
+        }
+
+        function renderRowInput(record, index) {
+            const bodyRows = document.getElementById('table-body-rows');
+            if(!bodyRows) return;
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition border-b border-slate-200';
+
+            const tdIndex = document.createElement('td');
+            tdIndex.className = 'p-2 text-center text-xs font-bold text-slate-500 border-r border-slate-300 bg-slate-50 sticky left-0 z-10 shadow-sm';
+            tdIndex.innerText = index + 1;
+            tr.appendChild(tdIndex);
+
+            templateVars.forEach(v => {
+                const td = document.createElement('td');
+                td.className = 'p-2 border-r border-slate-200 relative group';
+                
+                if(v.type === 'kathan') {
+                    const btn = document.createElement('button');
+                    const valLength = (record[v.name] || '').trim().length;
+                    btn.className = 'w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 font-medium text-xs py-2 px-3 rounded flex items-center justify-between transition';
+                    btn.innerHTML = `<span><i class="fa-solid fa-edit mr-1"></i> ${valLength > 0 ? `${valLength} शब्द दर्ज` : 'कथन दर्ज करें...'}</span> <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>`;
+                    btn.onclick = () => openKathanModal(index, v.name);
+                    td.appendChild(btn);
+                } else {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'flex items-center gap-1';
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = record[v.name] || '';
+                    input.placeholder = `${v.name.replace(/_/g, ' ')}...`;
+                    input.className = 'w-full bg-slate-50 focus:bg-white border border-slate-300 focus:border-indigo-500 rounded p-2 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none';
+                    input.oninput = (e) => {
+                        recordsData[index][v.name] = e.target.value;
+                    };
+
+                    const calcBtn = document.createElement('button');
+                    calcBtn.type = 'button';
+                    calcBtn.className = 'p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 rounded transition';
+                    calcBtn.title = 'इस सेल में फ़ॉर्मूला लागू करें';
+                    calcBtn.innerHTML = '<i class="fa-solid fa-calculator text-xs"></i>';
+                    calcBtn.onclick = () => openCellFormulaModal(index, v.name);
+
+                    wrap.appendChild(input);
+                    wrap.appendChild(calcBtn);
+                    td.appendChild(wrap);
+                }
+                tr.appendChild(td);
+            });
+
+            const tdAction = document.createElement('td');
+            tdAction.className = 'p-2 text-center bg-white border-l border-slate-300 sticky right-0 z-10 shadow-sm';
+            tdAction.innerHTML = `<button onclick="deleteRow(${index})" class="text-rose-500 hover:text-rose-700 text-sm p-1 rounded"><i class="fa-solid fa-trash-can"></i></button>`;
+            tr.appendChild(tdAction);
+
+            bodyRows.appendChild(tr);
+        }
+
+        function openKathanModal(rowIndex, varName) {
+            activeKathanCell = { rowIndex, varName };
+            document.getElementById('kathan-title-display').innerText = varName.replace(/_/g, ' ');
+            document.getElementById('kathan-textarea').value = recordsData[rowIndex][varName] || '';
+            openModal('kathan-editor-modal');
+        }
+
+        function saveKathanText() {
+            if(activeKathanCell.rowIndex !== null && activeKathanCell.varName) {
+                const text = document.getElementById('kathan-textarea').value;
+                recordsData[activeKathanCell.rowIndex][activeKathanCell.varName] = text;
+                closeModal('kathan-editor-modal');
+                buildDataTable();
+            }
+        }
+
+        function openCellFormulaModal(rowIndex, varName) {
+            activeCellTarget = { rowIndex, varName };
+            document.getElementById('cell-var-name-display').innerText = varName.replace(/_/g, ' ');
+
+            const s1 = document.getElementById('cell-formula-var-1');
+            const s2 = document.getElementById('cell-formula-var-2');
+
+            if(!s1 || !s2) return;
+            s1.innerHTML = '';
+            s2.innerHTML = '';
+
+            templateVars.forEach(v => {
+                if(v.name !== varName) {
+                    const opt1 = document.createElement('option');
+                    opt1.value = v.name;
+                    opt1.innerText = v.name.replace(/_/g, ' ');
+                    s1.appendChild(opt1);
+
+                    const opt2 = document.createElement('option');
+                    opt2.value = v.name;
+                    opt2.innerText = v.name.replace(/_/g, ' ');
+                    s2.appendChild(opt2);
+                }
+            });
+
+            openModal('cell-formula-modal');
+        }
+
+        function applyCellFormula(applyToAllRows = false) {
+            const { rowIndex, varName } = activeCellTarget;
+            if(varName === null) return;
+
+            const op = document.getElementById('cell-formula-type').value;
+            const v1Name = document.getElementById('cell-formula-var-1').value;
+            const v2Name = document.getElementById('cell-formula-var-2').value;
+
+            if(!v1Name || !v2Name) {
+                alert("गणना हेतु दोनों फ़ील्ड्स (Variables) चुनें।");
+                return;
+            }
+
+            const computeValueForRow = (rowObj) => {
+                const val1Raw = rowObj[v1Name] || '';
+                const val2Raw = rowObj[v2Name] || '';
+
+                if(op.startsWith('DATEDIFF')) {
+                    const parseFlexDate = (s) => {
+                        const t = String(s || '').trim();
+                        const m = t.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+                        if (m) return new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+                        return new Date(t);
+                    };
+                    const d1 = parseFlexDate(val1Raw);
+                    const d2 = parseFlexDate(val2Raw);
+
+                    if(isNaN(d1) || isNaN(d2)) return '0';
+
+                    const diffTime = Math.abs(d2 - d1);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if(op === 'DATEDIFF_Y') return Math.floor(diffDays / 365.25).toString();
+                    if(op === 'DATEDIFF_M') return Math.floor(diffDays / 30.4375).toString();
+                    if(op === 'DATEDIFF_D') return diffDays.toString();
+                }
+
+                const num1 = parseFloat(val1Raw) || 0;
+                const num2 = parseFloat(val2Raw) || 0;
+
+                if(op === 'SUM') return (num1 + num2).toString();
+                if(op === 'SUBTRACT') return (num1 - num2).toString();
+                if(op === 'MULTIPLY') return (num1 * num2).toString();
+                if(op === 'PERCENT') return num2 !== 0 ? ((num1 / num2) * 100).toFixed(2) : '0';
+
+                return '';
+            };
+
+            if(applyToAllRows) {
+                recordsData.forEach(row => {
+                    row[varName] = computeValueForRow(row);
+                });
+            } else {
+                recordsData[rowIndex][varName] = computeValueForRow(recordsData[rowIndex]);
+            }
+
+            closeModal('cell-formula-modal');
+            buildDataTable();
+        }
+
+        function deleteRow(index) {
+            recordsData.splice(index, 1);
+            buildDataTable();
+        }
+
+        function clearAllTableData() {
+            if(confirm("क्या आप तालिका के सभी रिकॉर्ड साफ़ करना चाहते हैं?")) {
+                recordsData = [];
+                buildDataTable();
+            }
+        }
+
+        function evaluateFormula(formulaStr, record) {
+            try {
+                const match = formulaStr.match(/^([A-Z_]+)\(\s*\{\{([^}]+)\}\}\s*,\s*\{\{([^}]+)\}\}\s*\)$/);
+                if(!match) return '[फॉर्मूला त्रुटि]';
+
+                const op = match[1];
+                const val1Raw = record[match[2].trim()] || '';
+                const val2Raw = record[match[3].trim()] || '';
+
+                if(op.startsWith('DATEDIFF')) {
+                    const parseFlexDate = (s) => {
+                        const t = String(s || '').trim();
+                        const m = t.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+                        if (m) return new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+                        return new Date(t);
+                    };
+                    const d1 = parseFlexDate(val1Raw);
+                    const d2 = parseFlexDate(val2Raw);
+
+                    if(isNaN(d1) || isNaN(d2)) return '0';
+
+                    const diffTime = Math.abs(d2 - d1);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if(op === 'DATEDIFF_Y') return Math.floor(diffDays / 365.25).toString();
+                    if(op === 'DATEDIFF_M') return Math.floor(diffDays / 30.4375).toString();
+                    if(op === 'DATEDIFF_D') return diffDays.toString();
+                }
+
+                const num1 = parseFloat(val1Raw) || 0;
+                const num2 = parseFloat(val2Raw) || 0;
+
+                if(op === 'SUM') return (num1 + num2).toString();
+                if(op === 'SUBTRACT') return (num1 - num2).toString();
+                if(op === 'MULTIPLY') return (num1 * num2).toString();
+                if(op === 'PERCENT') return num2 !== 0 ? ((num1 / num2) * 100).toFixed(2) : '0';
+
+                return '';
+            } catch(e) {
+                return '';
+            }
+        }
+
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function formatMultilineHtml(val) {
+            return String(val ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\r?\n/g, '<br>');
+        }
+
+        function generateAllLetters(fromSwitchTab = false) {
+            scanForVariables();
+
+            if (recordsData.length === 0) {
+                if (!fromSwitchTab) {
+                    alert("कृपया पहले तालिका या Excel से कम से कम एक रिकॉर्ड दर्ज करें।");
+                    switchTab('table');
+                }
+                return;
+            }
+
+            const printArea = document.getElementById('print-area');
+            if (!printArea) return;
+            printArea.innerHTML = '';
+
+            const compName = document.getElementById('cfg-company-name').value || "";
+            const compSub = document.getElementById('cfg-company-sub').value || "";
+            const editorClone = document.getElementById('letter-body-editor').cloneNode(true);
+
+            const marginTop = document.getElementById('setup-margin-top').value || 20;
+            const marginBottom = document.getElementById('setup-margin-bottom').value || 20;
+            const marginLeft = document.getElementById('setup-margin-left').value || 20;
+            const marginRight = document.getElementById('setup-margin-right').value || 20;
+            const orientation = document.getElementById('setup-orientation').value;
+
+            const hdrFont = document.getElementById('hdr-font-family').value;
+            const hdrSize = document.getElementById('hdr-font-size').value;
+            const hdrAlign = document.getElementById('hdr-alignment').value;
+            const isHdrShow = document.getElementById('hdr-show-toggle').checked;
+
+            const bodyFont = document.getElementById('body-font-family').value;
+            const bodySize = document.getElementById('body-font-size').value;
+
+            recordsData.forEach((record) => {
+                // Clone DOM for each record so nested {{...}} inside formula tags never break replacement
+                const docFrag = editorClone.cloneNode(true);
+
+                // Step 1: Replace all .var-tag span elements cleanly via DOM
+                docFrag.querySelectorAll('.var-tag').forEach(tag => {
+                    const rawTagText = (tag.innerText || tag.textContent || '').trim();
+                    const innerMatch = rawTagText.match(/^\{\{([\s\S]+)\}\}$/);
+                    let finalHtml = '';
+
+                    if (innerMatch) {
+                        const token = innerMatch[1].trim();
+                        if (token.startsWith('=')) {
+                            const res = evaluateFormula(token.substring(1), record);
+                            finalHtml = formatMultilineHtml(res);
+                        } else if (token.startsWith('*')) {
+                            const key = token.substring(1).trim();
+                            finalHtml = formatMultilineHtml((record[key] ?? '').toString().trim());
+                        } else {
+                            finalHtml = formatMultilineHtml((record[token] ?? '').toString().trim());
+                        }
+                    }
+
+                    const filledSpan = document.createElement('span');
+                    filledSpan.className = 'var-tag-filled font-bold text-slate-900';
+                    filledSpan.innerHTML = finalHtml;
+                    tag.replaceWith(filledSpan);
+                });
+
+                // Step 2: Fallback string replacement for any plain-text {{...}} typed without span wrapper
+                let letterContent = docFrag.innerHTML;
+
+                formulaVars.forEach(f => {
+                    const resultVal = formatMultilineHtml(evaluateFormula(f.substring(1), record));
+                    const regex = new RegExp(`\\{\\{\\s*${escapeRegExp(f)}\\s*\\}\\}`, 'g');
+                    letterContent = letterContent.replace(regex, `<span class="var-tag-filled font-bold text-slate-900">${resultVal}</span>`);
+                });
+
+                templateVars.forEach(v => {
+                    const cleanVal = formatMultilineHtml((record[v.name] ?? '').toString().trim());
+                    const varPrefix = v.type === 'kathan' ? '\\*' : '';
+                    const regex = new RegExp(`\\{\\{\\s*${varPrefix}${escapeRegExp(v.name)}\\s*\\}\\}`, 'g');
+                    letterContent = letterContent.replace(regex, `<span class="var-tag-filled font-bold text-slate-900">${cleanVal}</span>`);
+                });
+
+                const page = document.createElement('div');
+                page.className = `a4-page text-slate-800 flex flex-col justify-between relative shadow-lg ${orientation === 'landscape' ? 'landscape' : ''}`;
+                page.style.paddingTop = `${marginTop}mm`;
+                page.style.paddingBottom = `${marginBottom}mm`;
+                page.style.paddingLeft = `${marginLeft}mm`;
+                page.style.paddingRight = `${marginRight}mm`;
+
+                page.innerHTML = `
+                    <div>
+                        ${isHdrShow ? `
+                        <div class="border-b-2 border-slate-800 pb-3 mb-6 ${hdrAlign}">
+                            <h2 class="font-bold tracking-wide text-slate-900 leading-snug whitespace-pre-line ${hdrFont} ${hdrSize}">${compName}</h2>
+                            <p class="text-xs text-slate-700 mt-1.5 whitespace-pre-line leading-relaxed">${compSub}</p>
+                        </div>` : ''}
+
+                        <div class="letter-content p-2 ${bodyFont}" style="font-size: ${bodySize}; line-height: 1.8;">
+                            ${letterContent}
+                        </div>
+                    </div>
+                `;
+
+                printArea.appendChild(page);
+            });
+
+            const genCount = document.getElementById('generated-count');
+            if (genCount) genCount.innerText = recordsData.length;
+            const recBadge = document.getElementById('records-count-badge');
+            if (recBadge) recBadge.innerText = recordsData.length;
+
+            if (!fromSwitchTab) {
+                switchTab('preview', true);
+            }
+        }
+
+        // ==========================================
+        // EXCEL (.xlsx / .xls / .csv) IMPORT & SAMPLE
+        // ==========================================
+        function normalizeHeaderKey(str) {
+            return String(str || '')
+                .replace(/[\{\}\*]/g, '')
+                .trim()
+                .replace(/\s+/g, '_')
+                .toLowerCase();
+        }
+
+        function formatExcelCellValue(val) {
+            if (val === null || val === undefined) return '';
+            if (val instanceof Date && !isNaN(val)) {
+                const dd = String(val.getDate()).padStart(2, '0');
+                const mm = String(val.getMonth() + 1).padStart(2, '0');
+                const yyyy = val.getFullYear();
+                return `${dd}/${mm}/${yyyy}`;
+            }
+            return String(val).trim();
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (typeof XLSX === 'undefined') {
+                alert("Excel लाइब्रेरी लोड नहीं हो पाई। कृपया इंटरनेट कनेक्शन जांचें।");
+                event.target.value = '';
+                return;
+            }
+
+            scanForVariables();
+            if (templateVars.length === 0) {
+                alert("पहले पत्र संपादक में कम से कम एक प्लेसहोल्डर बनाएं, फिर Excel अपलोड करें।");
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+                    if (!rows || rows.length === 0) {
+                        alert("चुनी गई Excel फ़ाइल खाली है!");
+                        return;
+                    }
+
+                    const varLookup = {};
+                    templateVars.forEach(v => {
+                        varLookup[normalizeHeaderKey(v.name)] = v.name;
+                    });
+
+                    const importedRecords = [];
+                    rows.forEach(excelRow => {
+                        const rec = {};
+                        templateVars.forEach(v => rec[v.name] = '');
+
+                        let hasAnyValue = false;
+                        Object.keys(excelRow).forEach(colHeader => {
+                            const normCol = normalizeHeaderKey(colHeader);
+                            const matchedVar = varLookup[normCol];
+                            if (matchedVar) {
+                                const cellVal = formatExcelCellValue(excelRow[colHeader]);
+                                rec[matchedVar] = cellVal;
+                                if (cellVal !== '') hasAnyValue = true;
+                            }
+                        });
+
+                        if (hasAnyValue) {
+                            importedRecords.push(rec);
+                        }
+                    });
+
+                    if (importedRecords.length === 0) {
+                        const expectedCols = templateVars.map(v => v.name).join(', ');
+                        alert(`Excel के कॉलम नाम पत्र के प्लेसहोल्डर्स से मेल नहीं खाए।\n\nअपेक्षित कॉलम नाम:\n${expectedCols}\n\n(सुझाव: 'सैंपल Excel' बटन से सही फ़ॉर्मेट डाउनलोड करें)`);
+                        return;
+                    }
+
+                    const isOnlyBlankRow = recordsData.length === 1 && Object.values(recordsData[0]).every(val => !String(val || '').trim());
+                    if (recordsData.length === 0 || isOnlyBlankRow) {
+                        recordsData = importedRecords;
+                    } else if (confirm(`तालिका में पहले से ${recordsData.length} रिकॉर्ड हैं।\n\nOK = पुराने रिकॉर्ड हटाकर नए ${importedRecords.length} रिकॉर्ड रखें\nCancel = पुराने रिकॉर्ड के नीचे जोड़ें`)) {
+                        recordsData = importedRecords;
+                    } else {
+                        recordsData = recordsData.concat(importedRecords);
+                    }
+
+                    buildDataTable();
+                    alert(`सफलतापूर्वक ${importedRecords.length} रिकॉर्ड Excel से लोड हो गए हैं!`);
+                } catch (err) {
+                    console.error("Excel Parse Error:", err);
+                    alert("Excel फ़ाइल पढ़ने में त्रुटि आई। कृपया मान्य .xlsx, .xls या .csv फ़ाइल चुनें।");
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadSampleExcel() {
+            scanForVariables();
+            if (templateVars.length === 0) {
+                alert("सैंपल Excel बनाने के लिए पहले पत्र में प्लेसहोल्डर जोड़ें।");
+                return;
+            }
+            if (typeof XLSX === 'undefined') {
+                alert("Excel लाइब्रेरी उपलब्ध नहीं है।");
+                return;
+            }
+
+            const headers = templateVars.map(v => v.name);
+            const sampleRow = templateVars.map(v => {
+                if (v.name.includes('दिनांक')) return '01/01/2026';
+                if (v.type === 'kathan') return 'यहाँ विस्तृत विवरण लिखें';
+                return '';
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Data");
+            XLSX.writeFile(wb, `PatraSetu_Sample_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        function exportAllPDF() {
+            const printElement = document.getElementById('print-area');
+            const orientation = document.getElementById('setup-orientation').value;
+            
+            const opt = {
+                margin:       0,
+                filename:     `Letters_${new Date().toISOString().slice(0,10)}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: orientation },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            html2pdf().set(opt).from(printElement).save();
+        }
+
+        function exportAllDoc() {
+            const printElement = document.getElementById('print-area');
+            const htmlHeader = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export Document</title><style>body{font-family: 'Arial', sans-serif; padding:20px;} .a4-page{page-break-after:always; margin-bottom:40px; border-bottom:none; padding-bottom:20px;}</style></head><body>";
+            const htmlFooter = "</body></html>";
+            
+            const sourceHTML = htmlHeader + printElement.innerHTML + htmlFooter;
+            
+            const blob = new Blob(['\ufeff', sourceHTML], {
+                type: 'application/msword'
+            });
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `A4_Letters_${new Date().toISOString().slice(0,10)}.doc`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
